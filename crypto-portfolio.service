@@ -1,0 +1,33 @@
+[Unit]
+Description=Crypto Portfolio Tracker (FastAPI)
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=www-data
+Group=www-data
+WorkingDirectory=/srv/crypto-portfolio
+EnvironmentFile=/srv/crypto-portfolio/.env
+
+# Activate the venv and start uvicorn
+ExecStart=/srv/crypto-portfolio/venv/bin/uvicorn app.main:app \
+    --host 127.0.0.1 \
+    --port 8000 \
+    --workers 2 \
+    --log-level info
+
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=crypto-portfolio
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/srv/crypto-portfolio
+
+[Install]
+WantedBy=multi-user.target

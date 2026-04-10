@@ -1,0 +1,29 @@
+# Replace yourdomain.com with your actual domain.
+# Caddy auto-obtains and renews a TLS certificate via Let's Encrypt.
+
+yourdomain.com {
+    reverse_proxy localhost:8000
+
+    # Gzip compression
+    encode gzip
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # Cache static assets
+    @static {
+        path /static/*
+    }
+    header @static Cache-Control "public, max-age=31536000, immutable"
+
+    log {
+        output file /var/log/caddy/crypto-portfolio.log
+        format json
+    }
+}
