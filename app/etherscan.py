@@ -1,7 +1,10 @@
 """Async Etherscan API client for ETH + ERC-20 wallet balance fetching."""
 import asyncio
+import logging
 from typing import List, Dict, Optional
 import aiohttp
+
+logger = logging.getLogger(__name__)
 
 from app.config import settings
 
@@ -90,8 +93,8 @@ async def _fetch_token_balance(
             balance = raw / (10 ** decimals) if decimals >= 0 else raw
             if balance > 0:
                 return {**contract, "balance": balance}
-    except Exception:
-        pass
+    except (aiohttp.ClientError, KeyError, ValueError) as exc:
+        logger.warning("Failed to fetch token balance for contract %s: %s", contract.get("contract_address"), exc)
     return None
 
 

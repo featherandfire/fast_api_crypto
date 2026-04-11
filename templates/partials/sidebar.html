@@ -1,0 +1,36 @@
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <img src="/static/favicon/favicon-32x32.png" width="22" height="22" alt="CryptoFolio" />
+    CryptoFolio
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-item" :class="{active: page==='dashboard'}" @click="page='dashboard'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-item" :class="{active: page==='market'}" @click="page='market'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+      Market
+    </div>
+    <div class="nav-item" :class="{active: page==='charts'}" @click="page='charts'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Charts
+    </div>
+    <div class="nav-item" :class="{active: page==='lookup'}" @click="page='lookup'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Hash Lookup
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-info" x-show="$store.auth.user">
+      <div class="user-avatar" x-text="$store.auth.user?.username?.charAt(0).toUpperCase()"></div>
+      <div>
+        <div class="user-name" x-text="$store.auth.user?.username"></div>
+        <div class="user-email" x-text="$store.auth.user?.email"></div>
+      </div>
+    </div>
+    <button class="logout-btn" @click="logout()">Sign out</button>
+  </div>
+</aside>

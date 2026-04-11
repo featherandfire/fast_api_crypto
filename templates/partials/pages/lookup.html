@@ -1,0 +1,244 @@
+<div x-show="page==='lookup'">
+
+  <!-- Page title -->
+  <div class="page-title-block">
+    <h2 class="page-title">Blockchain Hash Lookup</h2>
+    <p class="page-subtitle">Paste any transaction hash, wallet address, or block hash to identify its chain and open the right explorer</p>
+  </div>
+
+  <!-- Two-column layout -->
+  <div class="lookup-layout">
+
+    <!-- ── Left: supported chains reference ── -->
+    <div class="lookup-left">
+      <div class="card chains-card">
+        <div class="chains-label">Supported Chains</div>
+        <table class="chains-table">
+          <thead>
+            <tr>
+              <th class="chains-th">Chain</th>
+              <th class="chains-th">Explorer</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="chains-td"><span class="chain-dot chain-dot-sm" style="background:#9945FF"></span>Solana</td>
+              <td class="chains-exp">solscan.io</td>
+            </tr>
+            <tr>
+              <td class="chains-td"><span class="chain-dot chain-dot-sm" style="background:#627EEA"></span>Ethereum</td>
+              <td class="chains-exp">etherscan.io</td>
+            </tr>
+            <tr>
+              <td class="chains-td"><span class="chain-dot chain-dot-sm" style="background:#F7931A"></span>Bitcoin</td>
+              <td class="chains-exp">mempool.space</td>
+            </tr>
+            <tr>
+              <td class="chains-td"><span class="chain-dot chain-dot-sm" style="background:#F3BA2F"></span>BNB Chain</td>
+              <td class="chains-exp">bscscan.com</td>
+            </tr>
+            <tr>
+              <td class="chains-td"><span class="chain-dot chain-dot-sm" style="background:#8247E5"></span>Polygon</td>
+              <td class="chains-exp">polygonscan.com</td>
+            </tr>
+            <tr>
+              <td class="chains-td"><span class="chain-dot chain-dot-sm" style="background:#0052FF"></span>Base</td>
+              <td class="chains-exp">basescan.org</td>
+            </tr>
+            <tr>
+              <td class="chains-td"><span class="chain-dot chain-dot-sm" style="background:#28A0F0"></span>Arbitrum</td>
+              <td class="chains-exp">arbiscan.io</td>
+            </tr>
+            <tr>
+              <td class="chains-td"><span class="chain-dot chain-dot-sm" style="background:#FF0420"></span>Optimism</td>
+              <td class="chains-exp">optimistic.etherscan.io</td>
+            </tr>
+            <tr>
+              <td class="chains-td"><span class="chain-dot chain-dot-sm" style="background:#EF0027"></span>Tron</td>
+              <td class="chains-exp">tronscan.org</td>
+            </tr>
+            <tr>
+              <td class="chains-td-last"><span class="chain-dot chain-dot-sm" style="background:#BFBBBB"></span>Litecoin</td>
+              <td class="chains-exp-last">blockchair.com</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Right: search + results ── -->
+    <div class="lookup-right">
+
+      <!-- Search bar -->
+      <div class="lookup-search">
+        <input
+          class="form-input lookup-input"
+          type="text"
+          x-model="lookupQuery"
+          placeholder="0x…  or  1A1zP1…  or  Solana address…"
+          @keydown.enter.prevent="lookupHash()"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button
+          class="btn btn-outline no-shrink"
+          type="button"
+          title="Paste from clipboard"
+          @click="navigator.clipboard.readText().then(t => { lookupQuery = t.trim(); }).catch(() => {})"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+        </button>
+        <button
+          class="btn btn-primary no-shrink"
+          type="button"
+          @click="lookupHash()"
+          :disabled="lookupLoading || !lookupQuery.trim()"
+        >
+          <span x-show="lookupLoading" class="spinner spinner-sm"></span>
+          <span x-show="!lookupLoading">Look up</span>
+        </button>
+      </div>
+
+      <!-- Probing spinner -->
+      <div x-show="lookupLoading" class="load-center">
+        <div class="spinner spinner-lg"></div>
+        <p class="probing-text">Probing chains…</p>
+      </div>
+
+      <!-- Error -->
+      <div x-show="lookupError && !lookupLoading" class="lookup-error" x-text="lookupError"></div>
+
+      <!-- Results -->
+      <div x-show="lookupResult && !lookupLoading">
+        <div class="card">
+
+          <!-- Hash + type badge -->
+          <div class="hash-header">
+            <div class="hash-header-row">
+              <code class="hash-code" x-text="lookupResult?.hash"></code>
+              <span class="badge hash-type-badge" x-text="lookupResult?.type"></span>
+            </div>
+          </div>
+
+          <!-- No matches -->
+          <div x-show="lookupResult?.matches?.length === 0" class="empty-state-compact">
+            <p class="no-match-title">No matches found</p>
+            <p class="no-match-sub">Hash format not recognized, or transaction not found on any probed chain.</p>
+          </div>
+
+          <!-- Match rows -->
+          <div x-show="lookupResult?.matches?.length > 0">
+            <template x-for="m in (lookupResult?.matches ?? [])" :key="m.chain">
+              <div class="match-row">
+                <div class="match-dot" :style="`background:${m.color}`"></div>
+                <div class="match-info">
+                  <div class="match-chain-name" x-text="m.chain_name"></div>
+                  <a :href="m.explorer_link" target="_blank" rel="noopener noreferrer" class="match-explorer-link" x-text="m.explorer_link"></a>
+                </div>
+                <span class="badge no-shrink" :class="lookupConfidenceClass(m.confidence)" x-text="lookupConfidenceLabel(m.confidence)"></span>
+                <a :href="m.explorer_link" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm no-shrink">Open ↗</a>
+              </div>
+            </template>
+          </div>
+
+          <!-- ── Transaction Summary ──────────────────────────────────── -->
+          <div x-show="lookupResult?.summary" class="tx-summary-section">
+            <div class="section-label">Transaction Summary</div>
+
+            <div class="tx-summary-rows">
+
+              <!-- Chain -->
+              <div class="summary-row">
+                <span class="summary-label">Chain</span>
+                <span class="inline-row-7">
+                  <span class="chain-dot chain-dot-md" style="background:#9945FF"></span>
+                  <span class="fw-500" x-text="lookupResult?.summary?.chain"></span>
+                </span>
+              </div>
+
+              <!-- Status -->
+              <div class="summary-row">
+                <span class="summary-label">Status</span>
+                <span x-show="lookupResult?.summary?.status === 'success'" class="status-success">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z"/></svg>
+                  Success
+                </span>
+                <span x-show="lookupResult?.summary?.status === 'failed'" class="status-failed">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z"/></svg>
+                  Failed
+                </span>
+              </div>
+
+              <!-- Time -->
+              <div x-show="lookupResult?.summary?.block_time" class="summary-row">
+                <span class="summary-label">Time</span>
+                <span x-text="lookupResult?.summary?.block_time ? new Date(lookupResult?.summary?.block_time * 1000).toLocaleString('en-US', {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',hour12:true}) : '—'"></span>
+              </div>
+
+              <!-- From -->
+              <div class="summary-row">
+                <span class="summary-label">From</span>
+                <code
+                  class="addr-code"
+                  :title="'click to copy'"
+                  @click="navigator.clipboard.writeText(lookupResult?.summary?.from_addr).then(() => Alpine.store('toast').show('Address copied')).catch(()=>{})"
+                  x-text="lookupResult?.summary?.from_addr"
+                ></code>
+              </div>
+
+              <!-- To -->
+              <div class="summary-row">
+                <span class="summary-label">To</span>
+                <code
+                  class="addr-code"
+                  :title="'click to copy'"
+                  @click="navigator.clipboard.writeText(lookupResult?.summary?.to_addr).then(() => Alpine.store('toast').show('Address copied')).catch(()=>{})"
+                  x-text="lookupResult?.summary?.to_addr"
+                ></code>
+                <span x-show="lookupResult?.summary?.to_addr === lookupResult?.summary?.from_addr" class="self-badge">(self)</span>
+              </div>
+
+              <!-- Value -->
+              <div x-show="lookupResult?.summary?.value" class="summary-row">
+                <span class="summary-label">Value</span>
+                <span class="mono-value" x-text="lookupResult?.summary?.value"></span>
+              </div>
+
+              <!-- Fee -->
+              <div x-show="lookupResult?.summary?.fee_sol" :class="lookupResult?.summary?.router ? 'summary-row' : 'summary-row-last'">
+                <span class="summary-label">Fee</span>
+                <span class="text-muted" x-text="lookupResult?.summary?.fee_sol"></span>
+              </div>
+
+              <!-- Router (optional) -->
+              <div x-show="lookupResult?.summary?.router" :class="lookupResult?.summary?.fee_display ? 'summary-row' : 'summary-row-last'">
+                <span class="summary-label">Router</span>
+                <span class="inline-row">
+                  <span class="chain-dot chain-dot-sm" style="background:var(--accent)"></span>
+                  <span x-text="lookupResult?.summary?.router"></span>
+                </span>
+              </div>
+
+              <!-- Platform fee (optional) -->
+              <div x-show="lookupResult?.summary?.fee_display" class="summary-row-last">
+                <span class="summary-label">Platform fee</span>
+                <span class="text-red" x-text="lookupResult?.summary?.fee_display"></span>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Initial empty state -->
+      <div x-show="!lookupResult && !lookupLoading && !lookupError" class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mb-12"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <p class="lookup-empty-title">Identify any blockchain hash</p>
+        <p class="lookup-empty-sub">Supports Ethereum, BNB Chain, Polygon, Arbitrum, Optimism, Avalanche, Base, Bitcoin, Solana, Tron, and Litecoin</p>
+      </div>
+
+    </div><!-- /right column -->
+  </div><!-- /two-column layout -->
+
+</div><!-- /lookup -->

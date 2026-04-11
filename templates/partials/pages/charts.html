@@ -1,0 +1,19 @@
+<div x-show="page==='charts'">
+  <div class="card mb-20">
+    <div class="card-header">
+      <span class="card-title" x-text="selectedChartCoin ? selectedChartCoin.toUpperCase() + ' — Price History' : 'Select a coin'"></span>
+      <div class="chart-btn-row" x-show="selectedChartCoin">
+        <button class="btn btn-outline btn-sm" @click="renderPriceChart(selectedChartCoin, 7)">7D</button>
+        <button class="btn btn-outline btn-sm" @click="renderPriceChart(selectedChartCoin, 30)">30D</button>
+        <button class="btn btn-outline btn-sm" @click="renderPriceChart(selectedChartCoin, 90)">90D</button>
+        <button class="btn btn-outline btn-sm" @click="renderPriceChart(selectedChartCoin, 365)">1Y</button>
+      </div>
+    </div>
+    <div class="chart-wrap chart-wrap-lg">
+      <canvas id="lineChart"></canvas>
+    </div>
+    <div class="empty-state" x-show="!selectedChartCoin">
+      <p>Go to <strong>Market</strong> and click a coin to view its chart</p>
+    </div>
+  </div>
+</div><!-- /charts -->

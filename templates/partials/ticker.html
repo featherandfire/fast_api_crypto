@@ -1,0 +1,23 @@
+<div class="ticker-strip" x-show="topCoins.length > 0">
+  <div class="ticker-label">&#9632; LIVE</div>
+  <div class="ticker-track">
+    <div class="ticker-content">
+      <!-- set 1 -->
+      <template x-for="c in topCoins.slice(0,25)" :key="'a-'+c.id">
+        <span class="ticker-item">
+          <span class="ticker-sym" x-text="c.symbol.toUpperCase()"></span>
+          <span class="ticker-price" x-text="(c.current_price ?? 0) >= 1000 ? '$'+(c.current_price).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '$'+(c.current_price ?? 0).toFixed(4)"></span>
+          <span :class="(c.price_change_24h ?? 0) >= 0 ? 'ticker-up' : 'ticker-down'" x-text="((c.price_change_24h ?? 0) >= 0 ? '+' : '')+(c.price_change_24h ?? 0).toFixed(2)+'%'"></span>
+        </span>
+      </template>
+      <!-- set 2 — duplicate for seamless loop -->
+      <template x-for="c in topCoins.slice(0,25)" :key="'b-'+c.id">
+        <span class="ticker-item">
+          <span class="ticker-sym" x-text="c.symbol.toUpperCase()"></span>
+          <span class="ticker-price" x-text="(c.current_price ?? 0) >= 1000 ? '$'+(c.current_price).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '$'+(c.current_price ?? 0).toFixed(4)"></span>
+          <span :class="(c.price_change_24h ?? 0) >= 0 ? 'ticker-up' : 'ticker-down'" x-text="((c.price_change_24h ?? 0) >= 0 ? '+' : '')+(c.price_change_24h ?? 0).toFixed(2)+'%'"></span>
+        </span>
+      </template>
+    </div>
+  </div>
+</div>

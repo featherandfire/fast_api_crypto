@@ -1,14 +1,17 @@
 """Email service — sends verification codes via SMTP.
 If SMTP is not configured, prints the code to stdout (dev mode).
 """
-import asyncio
+import logging
 import random
-import smtplib
 from datetime import datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+import aiosmtplib
+
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 _CODE_TTL_MINUTES = 15
 
@@ -21,12 +24,15 @@ def code_expiry() -> datetime:
     return datetime.now(timezone.utc) + timedelta(minutes=_CODE_TTL_MINUTES)
 
 
-def _send_sync(to_email: str, code: str) -> None:
+def _build_message(to_email: str, code: str) -> MIMEMultipart:
     sender = settings.smtp_from or settings.smtp_user
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"{code} is your CryptoFolio verification code"
     msg["From"] = sender
     msg["To"] = to_email
+
+    # code is always 6 ASCII digits — no escaping needed, but kept explicit
+    safe_code = "".join(c for c in code if c.isdigit())
 
     html = f"""
 <!DOCTYPE html>
@@ -41,7 +47,7 @@ def _send_sync(to_email: str, code: str) -> None:
           <td style="padding:32px 40px 24px;border-bottom:1px solid #261d4a">
             <div style="font-size:22px;font-weight:700;color:#b44dff;
                         text-shadow:0 0 16px rgba(180,77,255,.6)">
-              ₿ CryptoFolio
+              &#8383; CryptoFolio
             </div>
           </td>
         </tr>
@@ -58,7 +64,7 @@ def _send_sync(to_email: str, code: str) -> None:
                            letter-spacing:12px;color:#b44dff;
                            font-family:'Courier New',monospace;
                            box-shadow:0 0 24px rgba(180,77,255,.3)">
-                {code}
+                {safe_code}
               </span>
             </div>
             <p style="color:#5c5280;font-size:13px;margin:0">
@@ -82,17 +88,30 @@ def _send_sync(to_email: str, code: str) -> None:
 </html>
 """
     msg.attach(MIMEText(html, "html"))
-
-    with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as smtp:
-        smtp.ehlo()
-        smtp.starttls()
-        smtp.login(settings.smtp_user, settings.smtp_password)
-        smtp.sendmail(sender, to_email, msg.as_string())
+    return msg
 
 
 async def send_verification_code(to_email: str, code: str) -> None:
-    """Send the code. Falls back to console log if SMTP not configured."""
+    """Send the verification code. Falls back to console log if SMTP not configured."""
     if not settings.smtp_host:
+        logger.warning(
+            "SMTP not configured — printing code to stdout (dev mode). "
+            "Set SMTP_HOST in .env to enable real emails."
+        )
         print(f"\n[DEV] Verification code for {to_email}: {code}\n", flush=True)
         return
-    await asyncio.to_thread(_send_sync, to_email, code)
+
+    msg = _build_message(to_email, code)
+    try:
+        await aiosmtplib.send(
+            msg,
+            hostname=settings.smtp_host,
+            port=settings.smtp_port,
+            username=settings.smtp_user,
+            password=settings.smtp_password,
+            start_tls=True,
+            timeout=15,
+        )
+    except aiosmtplib.SMTPException as exc:
+        logger.error("Failed to send verification email to %s: %s", to_email, exc)
+        raise

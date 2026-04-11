@@ -1,0 +1,5 @@
+<div class="toast-container">
+  <template x-for="t in $store.toast.items" :key="t.id">
+    <div class="toast" :class="t.type" x-text="t.msg"></div>
+  </template>
+</div>

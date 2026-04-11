@@ -25,13 +25,15 @@ async def get_top_coins(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """Fetch top coins from CoinGecko and upsert into local DB."""
+    """Fetch top coins from CoinGecko and upsert into local DB. Falls back to DB on CoinGecko failure."""
     try:
         raw = await coingecko.fetch_top_coins(limit)
-    except aiohttp.ClientResponseError as e:
-        raise HTTPException(status_code=502, detail="CoinGecko rate limit — try again in a moment" if e.status == 429 else f"CoinGecko error {e.status}")
     except Exception:
-        raise HTTPException(status_code=502, detail="Failed to fetch market data")
+        # CoinGecko unavailable — serve cached DB rows instead of crashing
+        result = await db.execute(
+            select(Coin).where(Coin.last_updated.isnot(None)).order_by(Coin.market_cap.desc()).limit(limit)
+        )
+        return result.scalars().all()
 
     coins_out = []
     for item in raw:

@@ -186,6 +186,7 @@ function dashApp() {
     activePortfolioId: null,
     portfolioDetail: null,
     loadingPortfolio: false,
+    _refreshTimer: null,
 
     // Market page
     topCoins: [],
@@ -240,9 +241,21 @@ function dashApp() {
       this.$watch('page', (p) => {
         if (p === 'market') this.loadMarket();
       });
-      // pre-fetch coins for ticker strip — delayed so portfolio loads go first
+
+      // Auto-refresh portfolio prices every 60 seconds
+      this._refreshTimer = setInterval(async () => {
+        if (this.activePortfolioId && !this.loadingPortfolio) {
+          try {
+            this.portfolioDetail = await apiFetch(`/portfolios/${this.activePortfolioId}`);
+            this.renderPieChart();
+          } catch {}
+        }
+      }, 90_000);
+      // pre-fetch coins for ticker strip — reuse topCoins if already populated
       setTimeout(() => {
-        apiFetch('/coins/top?limit=25').then(c => { if (c) this.topCoins = c; }).catch(() => {});
+        if (!this.topCoins.length) {
+          apiFetch('/coins/top?limit=50').then(c => { if (c) this.topCoins = c; }).catch(() => {});
+        }
       }, 2000);
       this.$watch('holdingSearch', () => this._rebuildHoldingCoins());
       this.$watch('holdingSearchResults', () => this._rebuildHoldingCoins());
@@ -617,6 +630,7 @@ function dashApp() {
     pnlClass(n) { return n == null ? '' : n >= 0 ? 'pos' : 'neg'; },
 
     logout() {
+      clearInterval(this._refreshTimer);
       Alpine.store('auth').logout();
       window.location.reload();
     },

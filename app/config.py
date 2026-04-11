@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    secret_key: str = "change-me-in-production"
+    secret_key: str  # required — no default; set SECRET_KEY in .env
     database_url: str = "sqlite+aiosqlite:///./crypto_portfolio.db"
     access_token_expire_minutes: int = 60
     coingecko_base_url: str = "https://api.coingecko.com/api/v3"

@@ -1,8 +1,11 @@
 """Async CoinGecko API client with concurrent fetching."""
 import asyncio
+import logging
 import time
 from typing import List, Dict, Any, Optional
 import aiohttp
+
+logger = logging.getLogger(__name__)
 
 from app.config import settings
 
@@ -13,7 +16,7 @@ _history_cache: Dict[str, tuple] = {}   # key -> (fetched_at, data)
 _HISTORY_TTL = 300                       # 5 minutes
 
 _top_cache: Dict[int, tuple] = {}        # limit -> (fetched_at, data)
-_TOP_TTL = 60                            # 60 seconds
+_TOP_TTL = 120                           # 2 minutes
 
 
 async def _get(session: aiohttp.ClientSession, url: str, params: dict = None) -> Any:
@@ -127,7 +130,8 @@ async def match_tokens_by_contract(contract_addresses: List[str]) -> Dict[str, D
                 "current_price_usd": (data.get("market_data") or {}).get("current_price", {}).get("usd"),
                 "image_url": (data.get("image") or {}).get("small"),
             })
-        except Exception:
+        except aiohttp.ClientError as exc:
+            logger.warning("Contract lookup failed for %s: %s", address, exc)
             return None
 
     async with aiohttp.ClientSession() as session:

@@ -1,6 +1,9 @@
 """Solana RPC client — fetches and parses transaction summaries."""
+import logging
 from typing import Optional, List, Dict, Tuple
 import aiohttp
+
+logger = logging.getLogger(__name__)
 
 _RPC = "https://api.mainnet-beta.solana.com"
 
@@ -267,5 +270,9 @@ async def fetch_tx_summary(signature: str) -> Optional[dict]:
             return None
         return _parse_summary(result)
 
-    except Exception:
+    except aiohttp.ClientError as exc:
+        logger.warning("Solana RPC request failed for %s: %s", signature, exc)
+        return None
+    except (KeyError, ValueError, TypeError) as exc:
+        logger.warning("Failed to parse Solana transaction %s: %s", signature, exc)
         return None

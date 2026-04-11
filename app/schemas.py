@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from app.models import TransactionType
 
 
@@ -55,19 +55,19 @@ class CoinOut(BaseModel):
     coingecko_id: str
     symbol: str
     name: str
-    current_price_usd: Optional[float]
-    price_change_24h: Optional[float]
-    market_cap: Optional[float]
-    image_url: Optional[str]
-    last_updated: Optional[datetime]
+    current_price_usd: Optional[float] = None
+    price_change_24h: Optional[float] = None
+    market_cap: Optional[float] = None
+    image_url: Optional[str] = None
+    last_updated: Optional[datetime] = None
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "coerce_numbers_to_str": False}
 
 
 # ── Portfolio ─────────────────────────────────────────────────────────────────
 
 class PortfolioCreate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, max_length=100)
 
 
 class PortfolioOut(BaseModel):
@@ -81,14 +81,22 @@ class PortfolioOut(BaseModel):
 # ── Holding ──────────────────────────────────────────────────────────────────
 
 class HoldingCreate(BaseModel):
-    coingecko_id: str
-    amount: float
-    avg_buy_price: Optional[float] = None
+    coingecko_id: str = Field(..., min_length=1)
+    amount: float = Field(..., gt=0, description="Must be greater than zero")
+    avg_buy_price: Optional[float] = Field(
+        default=None, ge=0, description="Must be zero or greater"
+    )
 
 
 class HoldingUpdate(BaseModel):
-    amount: Optional[float] = None
-    avg_buy_price: Optional[float] = None
+    amount: Optional[float] = Field(default=None, gt=0)
+    avg_buy_price: Optional[float] = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def at_least_one_field(self) -> "HoldingUpdate":
+        if self.amount is None and self.avg_buy_price is None:
+            raise ValueError("Provide at least one of: amount, avg_buy_price")
+        return self
 
 
 class HoldingOut(BaseModel):
@@ -122,9 +130,9 @@ class PortfolioDetail(PortfolioOut):
 
 class TransactionCreate(BaseModel):
     type: TransactionType
-    amount: float
-    price_usd: float
-    note: Optional[str] = None
+    amount: float = Field(..., gt=0, description="Must be greater than zero")
+    price_usd: float = Field(..., ge=0, description="Must be zero or greater")
+    note: Optional[str] = Field(default=None, max_length=500)
 
 
 class TransactionOut(BaseModel):

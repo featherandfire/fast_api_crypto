@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -7,8 +8,11 @@ from fastapi.requests import Request
 from fastapi.responses import HTMLResponse
 
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from app.database import init_db, engine
 from app.routers import auth, portfolio, coins, wallet, lookup
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -23,8 +27,8 @@ async def lifespan(app: FastAPI):
         ]:
             try:
                 await conn.execute(text(stmt))
-            except Exception:
-                pass  # column already exists
+            except OperationalError:
+                pass  # column already exists — safe to skip
     yield
 
 

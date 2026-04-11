@@ -1,0 +1,12 @@
+<div class="topbar">
+  <div class="topbar-title" x-text="page.charAt(0).toUpperCase() + page.slice(1)"></div>
+  <div class="topbar-actions">
+    <select class="portfolio-select" x-model="activePortfolioId" @change="loadPortfolioDetail()" x-show="page==='dashboard' && portfolios.length">
+      <template x-for="p in portfolios" :key="p.id">
+        <option :value="p.id" x-text="p.name"></option>
+      </template>
+    </select>
+    <button class="btn btn-outline btn-sm" @click="showAddPortfolio=true" x-show="page==='dashboard'">+ Portfolio</button>
+    <button class="btn btn-primary btn-sm" @click="openAddHolding()" x-show="page==='dashboard' && activePortfolioId">+ Holding</button>
+  </div>
+</div>

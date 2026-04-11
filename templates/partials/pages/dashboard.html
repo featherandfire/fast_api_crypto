@@ -1,0 +1,132 @@
+<div x-show="page==='dashboard'">
+
+  <!-- Empty state -->
+  <div class="empty-state" x-show="!portfolios.length && !loadingPortfolio">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <p class="empty-state-title">No portfolios yet</p>
+    <p>Click <strong>+ Portfolio</strong> to create your first one.</p>
+  </div>
+
+  <!-- Loading skeleton -->
+  <div x-show="loadingPortfolio">
+    <div class="stats-grid">
+      <template x-for="i in 4" :key="i">
+        <div class="stat-card" style="opacity:.5">
+          <div class="skel-label"></div>
+          <div class="skel-value"></div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- Portfolio detail -->
+  <div x-show="portfolioDetail && !loadingPortfolio">
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Value</div>
+        <div class="stat-value" x-text="fmtUSD(portfolioDetail?.total_value_usd)"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Cost</div>
+        <div class="stat-value" x-text="fmtUSD(portfolioDetail?.total_cost_usd)"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Profit &amp; Loss</div>
+        <div class="stat-value" :class="pnlClass(portfolioDetail?.total_pnl_usd)" x-text="fmtUSD(portfolioDetail?.total_pnl_usd)"></div>
+        <div class="stat-change" :class="pnlClass(portfolioDetail?.total_pnl_pct)" x-text="fmtPct(portfolioDetail?.total_pnl_pct)"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Assets</div>
+        <div class="stat-value" x-text="portfolioDetail?.holdings?.length ?? 0"></div>
+      </div>
+    </div>
+
+    <!-- Charts row -->
+    <div class="charts-grid" x-show="portfolioDetail?.holdings?.length">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Allocation</span></div>
+        <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" x-text="selectedChartCoin ? selectedChartCoin.toUpperCase() + ' Price' : 'Price Chart'"></span>
+          <div class="chart-btn-row" x-show="selectedChartCoin">
+            <button class="btn btn-outline btn-sm" @click="renderPriceChart(selectedChartCoin, 7)">7D</button>
+            <button class="btn btn-outline btn-sm" @click="renderPriceChart(selectedChartCoin, 30)">30D</button>
+            <button class="btn btn-outline btn-sm" @click="renderPriceChart(selectedChartCoin, 90)">90D</button>
+          </div>
+        </div>
+        <div class="chart-wrap" x-show="selectedChartCoin"><canvas id="lineChart"></canvas></div>
+        <div class="empty-state empty-state-chart" x-show="!selectedChartCoin">
+          <p>Click a coin below to view its price chart</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Holdings table -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Holdings</span>
+        <button class="btn btn-danger btn-sm" @click="deletePortfolio(activePortfolioId)">Delete portfolio</button>
+      </div>
+
+      <div class="empty-state" x-show="!portfolioDetail?.holdings?.length">
+        <p>No holdings yet — click <strong>+ Holding</strong> to add one.</p>
+      </div>
+
+      <div class="table-wrap" x-show="portfolioDetail?.holdings?.length">
+        <table>
+          <thead>
+            <tr>
+              <th>Asset</th>
+              <th>Price</th>
+              <th>24h</th>
+              <th>Amount</th>
+              <th>Avg Buy</th>
+              <th>Value</th>
+              <th>P&amp;L</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="h in (portfolioDetail?.holdings ?? [])" :key="h.id">
+              <tr class="cursor-pointer" @click="renderPriceChart(h.coin.coingecko_id)">
+                <td>
+                  <div class="coin-cell">
+                    <template x-if="h.coin.image_url">
+                      <img class="coin-img" :src="h.coin.image_url" :alt="h.coin.name" />
+                    </template>
+                    <template x-if="!h.coin.image_url">
+                      <div class="coin-img-placeholder" x-text="h.coin.symbol.charAt(0).toUpperCase()"></div>
+                    </template>
+                    <div>
+                      <div class="coin-name" x-text="h.coin.name"></div>
+                      <div class="coin-symbol" x-text="h.coin.symbol"></div>
+                    </div>
+                  </div>
+                </td>
+                <td x-text="fmtUSD(h.coin.current_price_usd)"></td>
+                <td>
+                  <span class="badge" :class="(h.coin.price_change_24h ?? 0) >= 0 ? 'badge-green' : 'badge-red'" x-text="fmtPct(h.coin.price_change_24h)"></span>
+                </td>
+                <td x-text="fmtAmount(h.amount) + ' ' + h.coin.symbol.toUpperCase()"></td>
+                <td x-text="fmtUSD(h.avg_buy_price)"></td>
+                <td x-text="fmtUSD(h.current_value_usd)"></td>
+                <td>
+                  <span :class="pnlClass(h.pnl_usd)" x-text="fmtUSD(h.pnl_usd)"></span>
+                  <div class="text-xs" :class="pnlClass(h.pnl_pct)" x-text="fmtPct(h.pnl_pct)"></div>
+                </td>
+                <td>
+                  <button class="btn btn-danger btn-sm" @click.stop="removeHolding(h.id)">✕</button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /portfolioDetail -->
+</div><!-- /dashboard -->

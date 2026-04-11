@@ -23,10 +23,66 @@ def _now():
     return datetime.now(timezone.utc)
 
 
+# ── Shared ownership helper ───────────────────────────────────────────────────
+
+async def _get_user_portfolio(
+    portfolio_id: int,
+    user_id: int,
+    db: AsyncSession,
+    *,
+    load_holdings: bool = False,
+) -> Portfolio:
+    """Fetch a portfolio by ID, verifying it belongs to the current user.
+    Raises 404 if not found or not owned. Optionally eager-loads holdings+coins."""
+    q = select(Portfolio).where(
+        Portfolio.id == portfolio_id,
+        Portfolio.user_id == user_id,
+    )
+    if load_holdings:
+        q = q.options(selectinload(Portfolio.holdings).selectinload(Holding.coin))
+    result = await db.execute(q)
+    portfolio = result.scalar_one_or_none()
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+    return portfolio
+
+
+async def _get_user_holding(
+    holding_id: int,
+    portfolio_id: int,
+    user_id: int,
+    db: AsyncSession,
+    *,
+    load_coin: bool = False,
+) -> Holding:
+    """Fetch a holding by ID, verifying it belongs to the current user's portfolio.
+    Raises 404 if not found or not owned."""
+    q = (
+        select(Holding)
+        .join(Portfolio)
+        .where(
+            Holding.id == holding_id,
+            Holding.portfolio_id == portfolio_id,
+            Portfolio.user_id == user_id,
+        )
+    )
+    if load_coin:
+        q = q.options(selectinload(Holding.coin))
+    result = await db.execute(q)
+    holding = result.scalar_one_or_none()
+    if not holding:
+        raise HTTPException(status_code=404, detail="Holding not found")
+    return holding
+
+
+# ── Value computation ─────────────────────────────────────────────────────────
+
 def _compute_holding_value(holding: Holding) -> HoldingWithValue:
     price = holding.coin.current_price_usd
-    current_value = holding.amount * price if price is not None else None
-    cost = (holding.avg_buy_price or 0) * holding.amount
+    price_f = float(price) if price is not None else None
+    amount_f = float(holding.amount)
+    current_value = amount_f * price_f if price_f is not None else None
+    cost = float(holding.avg_buy_price or 0) * amount_f
     pnl_usd = (current_value - cost) if current_value is not None else None
     pnl_pct = (pnl_usd / cost * 100) if (pnl_usd is not None and cost > 0) else None
     return HoldingWithValue(
@@ -41,7 +97,6 @@ async def _get_or_create_coin(db: AsyncSession, coingecko_id: str) -> Coin:
     result = await db.execute(select(Coin).where(Coin.coingecko_id == coingecko_id))
     coin = result.scalar_one_or_none()
     if coin is None:
-        # Fetch basic info from CoinGecko
         data = await coingecko.fetch_prices([coingecko_id])
         if coingecko_id not in data:
             raise HTTPException(status_code=404, detail=f"Coin '{coingecko_id}' not found on CoinGecko")
@@ -98,7 +153,6 @@ async def create_portfolio(
     portfolio = Portfolio(user_id=current_user.id, name=payload.name)
     db.add(portfolio)
     await db.commit()
-    await db.refresh(portfolio)
     return portfolio
 
 
@@ -108,20 +162,14 @@ async def get_portfolio(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Portfolio)
-        .where(Portfolio.id == portfolio_id, Portfolio.user_id == current_user.id)
-        .options(selectinload(Portfolio.holdings).selectinload(Holding.coin))
+    portfolio = await _get_user_portfolio(
+        portfolio_id, current_user.id, db, load_holdings=True
     )
-    portfolio = result.scalar_one_or_none()
-    if not portfolio:
-        raise HTTPException(status_code=404, detail="Portfolio not found")
-
     await _refresh_holding_prices(db, portfolio.holdings)
 
     holdings_out = [_compute_holding_value(h) for h in portfolio.holdings]
     total_value = sum(h.current_value_usd or 0 for h in holdings_out)
-    total_cost = sum((h.avg_buy_price or 0) * h.amount for h in portfolio.holdings)
+    total_cost = sum(float(h.avg_buy_price or 0) * float(h.amount) for h in portfolio.holdings)
     total_pnl = total_value - total_cost
     pnl_pct = (total_pnl / total_cost * 100) if total_cost > 0 else None
 
@@ -141,12 +189,7 @@ async def delete_portfolio(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Portfolio).where(Portfolio.id == portfolio_id, Portfolio.user_id == current_user.id)
-    )
-    portfolio = result.scalar_one_or_none()
-    if not portfolio:
-        raise HTTPException(status_code=404, detail="Portfolio not found")
+    portfolio = await _get_user_portfolio(portfolio_id, current_user.id, db)
     await db.delete(portfolio)
     await db.commit()
 
@@ -160,12 +203,7 @@ async def add_holding(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Portfolio).where(Portfolio.id == portfolio_id, Portfolio.user_id == current_user.id)
-    )
-    portfolio = result.scalar_one_or_none()
-    if not portfolio:
-        raise HTTPException(status_code=404, detail="Portfolio not found")
+    await _get_user_portfolio(portfolio_id, current_user.id, db)
 
     coin = await _get_or_create_coin(db, payload.coingecko_id)
 
@@ -183,12 +221,12 @@ async def add_holding(
     )
     db.add(holding)
     await db.commit()
-    await db.refresh(holding)
 
-    result2 = await db.execute(
+    # Single query loads the holding with its coin relationship (no db.refresh needed)
+    result = await db.execute(
         select(Holding).where(Holding.id == holding.id).options(selectinload(Holding.coin))
     )
-    return result2.scalar_one()
+    return result.scalar_one()
 
 
 @router.patch("/{portfolio_id}/holdings/{holding_id}", response_model=HoldingOut)
@@ -199,19 +237,9 @@ async def update_holding(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Holding)
-        .join(Portfolio)
-        .where(
-            Holding.id == holding_id,
-            Holding.portfolio_id == portfolio_id,
-            Portfolio.user_id == current_user.id,
-        )
-        .options(selectinload(Holding.coin))
+    holding = await _get_user_holding(
+        holding_id, portfolio_id, current_user.id, db, load_coin=True
     )
-    holding = result.scalar_one_or_none()
-    if not holding:
-        raise HTTPException(status_code=404, detail="Holding not found")
 
     if payload.amount is not None:
         holding.amount = payload.amount
@@ -220,7 +248,6 @@ async def update_holding(
     holding.updated_at = _now()
 
     await db.commit()
-    await db.refresh(holding)
     return holding
 
 
@@ -231,18 +258,7 @@ async def remove_holding(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Holding)
-        .join(Portfolio)
-        .where(
-            Holding.id == holding_id,
-            Holding.portfolio_id == portfolio_id,
-            Portfolio.user_id == current_user.id,
-        )
-    )
-    holding = result.scalar_one_or_none()
-    if not holding:
-        raise HTTPException(status_code=404, detail="Holding not found")
+    holding = await _get_user_holding(holding_id, portfolio_id, current_user.id, db)
     await db.delete(holding)
     await db.commit()
 
@@ -257,18 +273,7 @@ async def add_transaction(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Holding)
-        .join(Portfolio)
-        .where(
-            Holding.id == holding_id,
-            Holding.portfolio_id == portfolio_id,
-            Portfolio.user_id == current_user.id,
-        )
-    )
-    holding = result.scalar_one_or_none()
-    if not holding:
-        raise HTTPException(status_code=404, detail="Holding not found")
+    await _get_user_holding(holding_id, portfolio_id, current_user.id, db)
 
     tx = Transaction(
         holding_id=holding_id,
@@ -279,7 +284,6 @@ async def add_transaction(
     )
     db.add(tx)
     await db.commit()
-    await db.refresh(tx)
     return tx
 
 
@@ -290,15 +294,11 @@ async def list_transactions(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await _get_user_holding(holding_id, portfolio_id, current_user.id, db)
+
     result = await db.execute(
         select(Transaction)
-        .join(Holding)
-        .join(Portfolio)
-        .where(
-            Transaction.holding_id == holding_id,
-            Holding.portfolio_id == portfolio_id,
-            Portfolio.user_id == current_user.id,
-        )
+        .where(Transaction.holding_id == holding_id)
         .order_by(Transaction.timestamp.desc())
     )
     return result.scalars().all()

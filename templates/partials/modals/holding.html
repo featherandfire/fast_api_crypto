@@ -1,0 +1,141 @@
+<div class="modal-backdrop" x-show="showAddHolding" @click.self="closeAddHolding()">
+  <div class="modal">
+    <button class="modal-close" @click="closeAddHolding()">&times;</button>
+    <div class="modal-title">Add Holding</div>
+
+    <!-- Tabs -->
+    <div class="page-tabs mb-20">
+      <div class="page-tab" :class="{active: holdingModalTab==='search'}" @click="holdingModalTab='search'">Search</div>
+      <div class="page-tab" :class="{active: holdingModalTab==='wallet'}" @click="holdingModalTab='wallet'">
+        Wallet Import
+        <span class="tab-badge">ETH</span>
+      </div>
+    </div>
+
+    <!-- ── Search tab ──────────────────────────────────────────────────── -->
+    <div x-show="holdingModalTab==='search'">
+      <div class="form-group pos-relative">
+        <label class="form-label">Search Coin</label>
+        <div class="pos-relative">
+          <input
+            class="form-input coin-search-input"
+            type="text"
+            x-model="holdingSearch"
+            placeholder="Bitcoin, ethereum…"
+            @focus="holdingDropdownOpen=true"
+            @blur="setTimeout(() => holdingDropdownOpen=false, 160)"
+            @input="holdingDropdownOpen=true; searchHoldingCoins($event.target.value)"
+            autocomplete="off"
+          />
+          <span x-show="holdingSearchLoading" class="spinner spinner-sm spinner-input-abs"></span>
+          <span
+            x-show="holdingSearch && !holdingSearchLoading"
+            @mousedown.prevent="holdingSearch=''; selectedCoin=null; holdingSearchResults=[]; holdingDropdownOpen=true"
+            class="clear-input-btn"
+          >&times;</span>
+        </div>
+        <!-- Dropdown -->
+        <div x-show="holdingDropdownOpen && holdingDisplayCoins.length" class="coin-dropdown">
+          <template x-for="c in holdingDisplayCoins" :key="c.id">
+            <div class="coin-dropdown-item" @mousedown.prevent="selectHoldingCoin(c)">
+              <template x-if="c.thumb">
+                <img :src="c.thumb" class="coin-thumb" />
+              </template>
+              <template x-if="!c.thumb">
+                <div class="coin-thumb-placeholder" x-text="c.symbol?.charAt(0).toUpperCase()"></div>
+              </template>
+              <span class="flex-1" x-text="c.name"></span>
+              <span class="text-muted text-xs no-shrink uppercase" x-text="c.symbol"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Amount</label>
+        <input class="form-input" type="number" step="any" min="0" x-model="holdingAmount" placeholder="0.5" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Avg Buy Price (USD, optional)</label>
+        <input class="form-input" type="number" step="any" min="0" x-model="holdingAvgPrice" placeholder="45000" />
+      </div>
+
+      <button class="btn btn-primary btn-block" type="button" @click="addHolding()" :disabled="!selectedCoin || !holdingAmount || addingHolding">
+        <span x-show="addingHolding" class="spinner spinner-sm"></span>
+        Add Holding
+      </button>
+    </div>
+
+    <!-- ── Wallet Import tab ───────────────────────────────────────────── -->
+    <div x-show="holdingModalTab==='wallet'">
+      <div class="form-group">
+        <label class="form-label">Ethereum Address</label>
+        <div class="wallet-addr-row">
+          <input
+            class="form-input wallet-addr-input"
+            type="text"
+            x-model="walletAddress"
+            placeholder="0x…"
+            @keydown.enter.prevent="fetchWalletTokens()"
+          />
+          <button class="btn btn-outline no-shrink" type="button" @click="fetchWalletTokens()" :disabled="walletLoading || !walletAddress">
+            <span x-show="walletLoading" class="spinner spinner-sm"></span>
+            <span x-show="!walletLoading">Fetch</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div x-show="walletError" class="wallet-error" x-text="walletError"></div>
+
+      <!-- Token checklist -->
+      <div x-show="walletTokens.length" class="token-list">
+        <template x-for="(t, i) in walletTokens" :key="i">
+          <label
+            class="token-label"
+            :style="!t.matched ? 'opacity:0.45;cursor:not-allowed;pointer-events:none' : ''"
+          >
+            <input type="checkbox" x-model="t.selected" :disabled="!t.matched" class="wallet-checkbox" />
+            <template x-if="t.image_url">
+              <img :src="t.image_url" class="token-thumb" />
+            </template>
+            <template x-if="!t.image_url">
+              <div class="token-thumb-placeholder" x-text="t.symbol.charAt(0).toUpperCase()"></div>
+            </template>
+            <div class="token-info">
+              <div class="token-name" x-text="t.name"></div>
+              <div class="token-amount" x-text="fmtAmount(t.amount) + ' ' + t.symbol.toUpperCase()"></div>
+            </div>
+            <div class="token-price-col">
+              <div class="token-price" x-text="t.current_price_usd ? fmtUSD(t.current_price_usd) : '—'"></div>
+              <div x-show="!t.matched" class="token-no-match">No match</div>
+            </div>
+          </label>
+        </template>
+      </div>
+
+      <!-- Empty state after fetch -->
+      <div x-show="!walletLoading && !walletError && walletTokens.length === 0 && walletAddress" class="wallet-empty">
+        No token balances found for this address.
+      </div>
+
+      <!-- Import button -->
+      <button
+        class="btn btn-primary btn-block"
+        type="button"
+        x-show="walletTokens.length"
+        @click="importSelectedWalletTokens()"
+        :disabled="walletImporting || !walletTokens.some(t => t.selected && t.matched)"
+      >
+        <span x-show="walletImporting" class="spinner spinner-sm"></span>
+        <span x-show="!walletImporting" x-text="'Import Selected (' + walletTokens.filter(t => t.selected && t.matched).length + ')'"></span>
+      </button>
+
+      <p class="wallet-footnote">
+        Requires an <a href="https://etherscan.io/myapikey" target="_blank">Etherscan API key</a> in <code>.env</code> for best results.
+        Greyed-out tokens have no CoinGecko price match.
+      </p>
+    </div>
+
+  </div>
+</div>

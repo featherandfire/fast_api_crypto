@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Column, Integer, String, Float, DateTime, Boolean, ForeignKey,
+    Column, Integer, String, Numeric, DateTime, Boolean, ForeignKey,
     Enum as SAEnum, UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
@@ -49,9 +49,9 @@ class Coin(Base):
     coingecko_id = Column(String(100), unique=True, nullable=False, index=True)
     symbol = Column(String(20), nullable=False)
     name = Column(String(100), nullable=False)
-    current_price_usd = Column(Float, nullable=True)
-    price_change_24h = Column(Float, nullable=True)
-    market_cap = Column(Float, nullable=True)
+    current_price_usd = Column(Numeric(19, 8), nullable=True)
+    price_change_24h = Column(Numeric(10, 4), nullable=True)
+    market_cap = Column(Numeric(30, 2), nullable=True)
     image_url = Column(String(500), nullable=True)
     last_updated = Column(DateTime(timezone=True), nullable=True)
 
@@ -64,8 +64,8 @@ class Holding(Base):
     id = Column(Integer, primary_key=True, index=True)
     portfolio_id = Column(Integer, ForeignKey("portfolios.id", ondelete="CASCADE"), nullable=False)
     coin_id = Column(Integer, ForeignKey("coins.id", ondelete="CASCADE"), nullable=False)
-    amount = Column(Float, nullable=False, default=0.0)
-    avg_buy_price = Column(Float, nullable=True)
+    amount = Column(Numeric(28, 10), nullable=False, default=0)
+    avg_buy_price = Column(Numeric(19, 8), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
@@ -87,8 +87,8 @@ class Transaction(Base):
     id = Column(Integer, primary_key=True, index=True)
     holding_id = Column(Integer, ForeignKey("holdings.id", ondelete="CASCADE"), nullable=False)
     type = Column(SAEnum(TransactionType), nullable=False)
-    amount = Column(Float, nullable=False)
-    price_usd = Column(Float, nullable=False)
+    amount = Column(Numeric(28, 10), nullable=False)
+    price_usd = Column(Numeric(19, 8), nullable=False)
     timestamp = Column(DateTime(timezone=True), default=utcnow)
     note = Column(String(500), nullable=True)
 

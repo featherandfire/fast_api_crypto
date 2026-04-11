@@ -1,0 +1,96 @@
+<!-- ═══════════════════════════════════════════════════════════
+     AUTH SCREEN  (shown when not logged in)
+═══════════════════════════════════════════════════════════ -->
+<div x-data="loginApp()" x-show="!$store.auth.isLoggedIn" x-cloak>
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-logo"><img src="/static/favicon/favicon-32x32.png" width="28" height="28" alt="" style="vertical-align:middle;margin-right:6px;filter:drop-shadow(0 0 6px rgba(180,77,255,0.9)) drop-shadow(0 0 14px rgba(180,77,255,0.5))">CryptoFolio</div>
+
+      <!-- ── Verification step ─────────────────────────────────────────── -->
+      <div x-show="verifyStep">
+        <p class="auth-subtitle" style="margin-bottom:28px">
+          A 6-digit code was sent to<br>
+          <strong class="text-accent" x-text="pendingEmail"></strong>
+        </p>
+
+        <form @submit.prevent="submitVerify">
+          <div class="form-group">
+            <label class="form-label">Verification code</label>
+            <input
+              class="form-input code-input"
+              type="tel"
+              x-model="verifyCode"
+              placeholder="000000"
+              maxlength="6"
+              required
+              autocomplete="one-time-code"
+              x-ref="codeInput"
+              x-init="$nextTick(() => verifyStep && $refs.codeInput?.focus())"
+            />
+          </div>
+
+          <div x-show="error" class="form-error" x-text="error"></div>
+
+          <button class="btn btn-primary btn-block" type="submit" :disabled="loading || verifyCode.length < 6">
+            <span x-show="loading" class="spinner spinner-sm"></span>
+            <span x-show="!loading">Verify &amp; sign in</span>
+          </button>
+        </form>
+
+        <div class="auth-hint">
+          Didn't receive it?
+          <button
+            type="button"
+            @click="resendCode()"
+            :disabled="resendCooldown > 0"
+            class="resend-btn"
+          >
+            <span x-show="resendCooldown === 0">Resend code</span>
+            <span x-show="resendCooldown > 0" x-text="`Resend in ${resendCooldown}s`"></span>
+          </button>
+        </div>
+
+        <div class="back-link-wrap">
+          <button type="button" @click="verifyStep=false;error=''" class="back-btn">
+            &larr; Back to sign in
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Login / Register ──────────────────────────────────────────── -->
+      <div x-show="!verifyStep">
+        <p class="auth-subtitle">Track your crypto portfolio in real-time</p>
+
+        <div class="page-tabs mb-20">
+          <div class="page-tab" :class="{active: tab==='login'}" @click="tab='login';error=''">Sign in</div>
+          <div class="page-tab" :class="{active: tab==='register'}" @click="tab='register';error=''">Create account</div>
+        </div>
+
+        <form @submit.prevent="submit">
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input class="form-input" type="text" x-model="username" placeholder="satoshi" required autocomplete="username" />
+          </div>
+
+          <div class="form-group" x-show="tab==='register'">
+            <label class="form-label">Email</label>
+            <input class="form-input" type="email" x-model="email" placeholder="you@example.com" :required="tab==='register'" autocomplete="email" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input class="form-input" type="password" x-model="password" placeholder="••••••••" required autocomplete="current-password" />
+          </div>
+
+          <div x-show="error" class="form-error" x-text="error"></div>
+
+          <button class="btn btn-primary btn-block" type="submit" :disabled="loading">
+            <span x-show="loading" class="spinner spinner-sm"></span>
+            <span x-show="!loading" x-text="tab==='login' ? 'Sign in' : 'Create account'"></span>
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>

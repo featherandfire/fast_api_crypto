@@ -1,0 +1,13 @@
+<div class="modal-backdrop" x-show="showAddPortfolio" @click.self="showAddPortfolio=false">
+  <div class="modal">
+    <button class="modal-close" @click="showAddPortfolio=false">&times;</button>
+    <div class="modal-title">New Portfolio</div>
+    <form @submit.prevent="createPortfolio()">
+      <div class="form-group">
+        <label class="form-label">Portfolio Name</label>
+        <input class="form-input" type="text" x-model="newPortfolioName" placeholder="My DeFi Portfolio" required />
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">Create</button>
+    </form>
+  </div>
+</div>
