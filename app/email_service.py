@@ -27,7 +27,7 @@ def code_expiry() -> datetime:
 def _build_message(to_email: str, code: str) -> MIMEMultipart:
     sender = settings.smtp_from or settings.smtp_user
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"{code} is your CryptoFolio verification code"
+    msg["Subject"] = f"{code} is your Crypto Portfolio Tracker verification code"
     msg["From"] = sender
     msg["To"] = to_email
 
@@ -47,7 +47,7 @@ def _build_message(to_email: str, code: str) -> MIMEMultipart:
           <td style="padding:32px 40px 24px;border-bottom:1px solid #261d4a">
             <div style="font-size:22px;font-weight:700;color:#b44dff;
                         text-shadow:0 0 16px rgba(180,77,255,.6)">
-              &#8383; CryptoFolio
+              &#8383; Crypto Portfolio Tracker
             </div>
           </td>
         </tr>
@@ -69,7 +69,7 @@ def _build_message(to_email: str, code: str) -> MIMEMultipart:
             </div>
             <p style="color:#5c5280;font-size:13px;margin:0">
               This code expires in {_CODE_TTL_MINUTES} minutes.
-              If you didn't create a CryptoFolio account, you can safely ignore this email.
+              If you didn't create a Crypto Portfolio Tracker account, you can safely ignore this email.
             </p>
           </td>
         </tr>
@@ -77,7 +77,7 @@ def _build_message(to_email: str, code: str) -> MIMEMultipart:
         <tr>
           <td style="padding:20px 40px;border-top:1px solid #261d4a">
             <p style="color:#5c5280;font-size:11px;margin:0">
-              CryptoFolio &mdash; Crypto Portfolio Tracker
+              Crypto Portfolio Tracker
             </p>
           </td>
         </tr>

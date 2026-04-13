@@ -1,0 +1,110 @@
+<div x-show="page==='paxos'" x-init="$watch('page', p => p === 'paxos' && loadPaxos())">
+
+  <div class="page-title-block">
+    <h2 class="page-title">Paxos</h2>
+    <p class="page-subtitle">Live crypto market prices and account balances via the Paxos API</p>
+    <div class="paxos-coin-stack" x-show="paxosMarkets.length">
+      <template x-for="p in paxosMarkets.slice(0, 20)" :key="p.market">
+        <div class="paxos-coin-wrap">
+          <img class="paxos-coin-icon"
+               :src="p.image || `https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/${p.base_asset.toLowerCase()}.svg`"
+               :alt="p.base_asset"
+               @error="$el.style.display='none'; $el.nextElementSibling.style.display='flex'" />
+          <div class="paxos-coin-icon paxos-coin-fallback" style="display:none"
+               x-text="p.base_asset.charAt(0)"></div>
+          <span class="paxos-coin-tip" x-text="p.base_asset"></span>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- Error banner -->
+  <div class="form-error" x-show="paxosError" x-text="paxosError" style="margin-bottom:16px"></div>
+
+  <!-- Market Prices -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <span class="card-title">Market Prices</span>
+      <button class="btn btn-outline btn-sm" @click="loadPaxos()" :disabled="paxosLoading">
+        <span x-show="paxosLoading" class="spinner spinner-sm"></span>
+        <span x-show="!paxosLoading">Refresh</span>
+      </button>
+    </div>
+
+    <div class="load-center" x-show="paxosLoading && !paxosPrices.length">
+      <div class="spinner"></div>
+    </div>
+
+    <div class="table-wrap" x-show="paxosPrices.length">
+      <table>
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th>Last Price</th>
+            <th>Bid</th>
+            <th>Ask</th>
+            <th>Spread</th>
+            <th>24h High</th>
+            <th>24h Low</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="p in paxosPrices" :key="p.market">
+            <tr>
+              <td>
+                <div class="coin-cell">
+                  <template x-if="p.image">
+                    <img class="coin-img" :src="p.image" :alt="p.base_asset" />
+                  </template>
+                  <template x-if="!p.image">
+                    <div class="coin-img-placeholder" x-text="p.base_asset.charAt(0)"></div>
+                  </template>
+                  <div>
+                    <div class="coin-name" x-text="p.base_asset"></div>
+                    <div class="coin-symbol" x-text="p.market"></div>
+                  </div>
+                </div>
+              </td>
+              <td x-text="fmtPaxosPrice(p.last)"></td>
+              <td x-text="fmtPaxosPrice(p.bid)"></td>
+              <td x-text="fmtPaxosPrice(p.ask)"></td>
+              <td x-text="p.spread != null ? fmtPaxosPrice(p.spread) : '—'"></td>
+              <td x-text="fmtPaxosPrice(p.high)"></td>
+              <td x-text="fmtPaxosPrice(p.low)"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Account Balances (shown only when data is available) -->
+  <div class="card" x-show="paxosBalances.length">
+    <div class="card-header">
+      <span class="card-title">Account Balances</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th>Available</th>
+            <th>Total</th>
+            <th>Held</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="b in paxosBalances" :key="b.asset">
+            <tr>
+              <td class="fw-500" x-text="b.asset"></td>
+              <td x-text="b.available ?? b.balance ?? '—'"></td>
+              <td x-text="b.total ?? '—'"></td>
+              <td x-text="b.held ?? '—'"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>

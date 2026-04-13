@@ -230,6 +230,13 @@ function dashApp() {
     lookupResult: null,
     lookupError: '',
 
+    // Paxos
+    paxosBalances: [],
+    paxosPrices: [],
+    paxosMarkets: [],
+    paxosLoading: false,
+    paxosError: '',
+
     async init() {
       await Alpine.store('auth').init();
       if (!Alpine.store('auth').isLoggedIn) return;
@@ -611,6 +618,81 @@ function dashApp() {
       } finally {
         this.lookupLoading = false;
       }
+    },
+
+    // ── Paxos ─────────────────────────────────────────────────────────────────
+
+    async loadPaxos() {
+      if (this.paxosLoading) return;
+      this.paxosLoading = true;
+      this.paxosError = '';
+      try {
+        // Fetch a larger coin list to maximise image/price coverage
+        if (this.topCoins.length < 200) {
+          try { this.topCoins = await apiFetch('/coins/top?limit=200'); } catch {}
+        }
+
+        const [prices, markets, balances] = await Promise.all([
+          apiFetch('/paxos/prices'),
+          apiFetch('/paxos/markets'),
+          apiFetch('/paxos/balances').catch(() => null),
+        ]);
+
+        const priceMap = {};
+        if (Array.isArray(prices)) prices.forEach(p => { priceMap[p.market] = p; });
+        const usdMarkets = (Array.isArray(markets) ? markets.filter(m => m.quote_asset === 'USD') : [])
+          .map(m => {
+            const cg = this.topCoins.find(c => c.symbol.toUpperCase() === m.base_asset.toUpperCase());
+            return { ...m, image: cg?.image_url || null };
+          });
+        this.paxosMarkets = usdMarkets;
+        this.paxosBalances = Array.isArray(balances) ? balances : [];
+        this.paxosPrices  = usdMarkets.map(m => {
+          const ticker = priceMap[m.market] || {};
+          const cg = this.topCoins.find(c => c.symbol.toUpperCase() === m.base_asset.toUpperCase());
+          const image = cg?.image_url || null;
+          const paxosLast = parseFloat(ticker.last_execution?.price);
+          const cgPrice = cg?.current_price_usd ?? null;
+          const last = (!isNaN(paxosLast) && paxosLast > 0) ? ticker.last_execution?.price : cgPrice;
+          const bid    = ticker.best_bid?.price || null;
+          const ask    = ticker.best_ask?.price || null;
+          const spread = (bid && ask) ? (parseFloat(ask) - parseFloat(bid)) : null;
+          let high = parseFloat(ticker.last_day?.high) > 0 ? ticker.last_day?.high : null;
+          let low  = parseFloat(ticker.last_day?.low)  > 0 ? ticker.last_day?.low  : null;
+          // Derive approx 24h high/low from CoinGecko price change % when Paxos has no data
+          if ((!high || !low) && cgPrice && cg?.price_change_24h != null) {
+            const pct = cg.price_change_24h / 100;
+            const open = cgPrice / (1 + pct);
+            high = high || Math.max(cgPrice, open);
+            low  = low  || Math.min(cgPrice, open);
+          }
+          return { ...m, image, last, bid, ask, spread, high, low };
+        });
+      } catch (e) {
+        this.paxosError = e.message;
+      } finally {
+        this.paxosLoading = false;
+      }
+    },
+
+    paxosCoinImage(symbol) {
+      const match = this.topCoins.find(c => c.symbol.toUpperCase() === symbol.toUpperCase());
+      return match?.image_url || null;
+    },
+
+    fmtPaxosPrice(v) {
+      if (v == null) return '—';
+      const n = parseFloat(v);
+      if (isNaN(n) || n === 0) return '—';
+      if (n < 0.0001)  return '$' + n.toFixed(10).replace(/\.?0+$/, '');
+      if (n < 0.01)    return '$' + n.toFixed(6).replace(/\.?0+$/, '');
+      if (n < 1)       return '$' + n.toFixed(4);
+      return fmtUSD(n);
+    },
+
+    paxosSpread(p) {
+      if (p.spread == null) return '—';
+      return fmtUSD(p.spread);
     },
 
     lookupConfidenceClass(c) {

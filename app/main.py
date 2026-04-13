@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from app.database import init_db, engine
-from app.routers import auth, portfolio, coins, wallet, lookup
+from app.routers import auth, portfolio, coins, wallet, lookup, paxos
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,7 @@ app.include_router(portfolio.router)
 app.include_router(coins.router)
 app.include_router(wallet.router)
 app.include_router(lookup.router)
+app.include_router(paxos.router)
 
 
 # ── SPA catch-all ─────────────────────────────────────────────────────────────

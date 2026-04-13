@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
     smtp_from: str = ""
+    paxos_client_id: str = ""
+    paxos_client_secret: str = ""
+    paxos_profile_id: str = ""
+    paxos_base_url: str = "https://api.sandbox.paxos.com/v2"
+    paxos_oauth_url: str = "https://oauth.sandbox.paxos.com/oauth2/token"
 
     class Config:
         env_file = ".env"
