@@ -34,5 +34,9 @@ Thumbs.db
 *.swp
 *.swo
 
+# Cache
+cryptocompare_cache.json
+coingecko_yearly_cache.json
+
 # Logs
 *.log

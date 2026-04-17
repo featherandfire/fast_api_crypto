@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     paxos_profile_id: str = ""
     paxos_base_url: str = "https://api.sandbox.paxos.com/v2"
     paxos_oauth_url: str = "https://oauth.sandbox.paxos.com/oauth2/token"
+    cryptocompare_api_key: str = ""
+    cryptocompare_base_url: str = "https://min-api.cryptocompare.com"
 
     class Config:
         env_file = ".env"

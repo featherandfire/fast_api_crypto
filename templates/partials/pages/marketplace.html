@@ -1,11 +1,11 @@
-<div x-show="page==='paxos'" x-init="$watch('page', p => p === 'paxos' && loadPaxos())">
+<div x-show="page==='marketplace'" x-init="$watch('page', p => p === 'marketplace' && loadMarketplace())">
 
   <div class="page-title-block">
-    <h2 class="page-title">Paxos</h2>
-    <p class="page-subtitle">Live crypto market prices and account balances via the Paxos API</p>
-    <div class="coin-stack" x-show="paxosMarkets.length">
-      <template x-for="p in paxosMarkets" :key="p.market">
-        <div class="coin-stack-wrap" @click="paxosPinned = (paxosPinned === p.base_asset ? null : p.base_asset)" style="cursor:pointer">
+    <h2 class="page-title">Marketplace</h2>
+    <p class="page-subtitle">Top crypto assets not currently traded on Paxos, ranked by price</p>
+    <div class="coin-stack" x-show="marketplaceCoins.length">
+      <template x-for="p in marketplaceCoins.slice((mkPage-1)*mkPerPage, (mkPage-1)*mkPerPage + mkPerPage + 30)" :key="p.base_asset">
+        <div class="coin-stack-wrap" @click="mkPinned = (mkPinned === p.base_asset ? null : p.base_asset); mkPage = 1" style="cursor:pointer">
           <img class="coin-stack-icon"
                :src="p.image || `https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/${p.base_asset.toLowerCase()}.svg`"
                :alt="p.base_asset"
@@ -19,23 +19,38 @@
   </div>
 
   <!-- Error banner -->
-  <div class="form-error" x-show="paxosError" x-text="paxosError" style="margin-bottom:16px"></div>
+  <div class="form-error" x-show="marketplaceError" x-text="marketplaceError" style="margin-bottom:16px"></div>
 
   <!-- Market Prices -->
-  <div class="card" style="margin-bottom:16px">
+  <div class="card marketplace-table">
     <div class="card-header">
       <span class="card-title">Market Prices</span>
-      <button class="btn btn-outline btn-sm" @click="loadPaxos()" :disabled="paxosLoading">
-        <span x-show="paxosLoading" class="spinner spinner-sm"></span>
-        <span x-show="!paxosLoading">Refresh</span>
-      </button>
+      <div style="display:flex; align-items:center; gap:8px; margin-left:auto">
+        <select class="mk-sort-select" x-model="mkSort" @change="mkPage = 1">
+          <option value="price_desc">Highest Price</option>
+          <option value="top10">Top 10 Highest Price</option>
+          <option value="stablecoin">Stablecoins</option>
+          <option value="most_volatile">Most Volatile</option>
+          <option value="least_volatile">Least Volatile</option>
+          <option value="vol_low">Volatility: Low</option>
+          <option value="vol_moderate">Volatility: Moderate</option>
+          <option value="vol_high">Volatility: High</option>
+          <option value="vol_very_high">Volatility: Very High</option>
+        </select>
+        <input class="input input-sm mk-search-input" type="text" placeholder="Search coins..."
+               x-model="mkSearch" @input="mkPage = 1" />
+        <button class="btn btn-outline btn-sm" @click="loadMarketplace()" :disabled="marketplaceLoading">
+          <span x-show="marketplaceLoading" class="spinner spinner-sm"></span>
+          <span x-show="!marketplaceLoading">Refresh</span>
+        </button>
+      </div>
     </div>
 
-    <div class="load-center" x-show="paxosLoading && !paxosPrices.length">
+    <div class="load-center" x-show="marketplaceLoading && !marketplaceCoins.length">
       <div class="spinner"></div>
     </div>
 
-    <div class="table-wrap" x-show="paxosPrices.length">
+    <div class="table-wrap" x-show="marketplaceCoins.length">
       <table>
         <thead>
           <tr>
@@ -43,9 +58,6 @@
             <th><div class="th-tip-wrap">Volatility<div class="th-tip"><span class="th-tip-label">Refreshed every:</span><span class="th-tip-val">24 hours</span></div></div></th>
             <th><div class="th-tip-wrap">Last Price<div class="th-tip"><span class="th-tip-label">Refreshed every:</span><span class="th-tip-val">Every refresh</span></div></div></th>
             <th><div class="th-tip-wrap">Market Cap<div class="th-tip"><span class="th-tip-label">Refreshed every:</span><span class="th-tip-val">5 minutes</span></div></div></th>
-            <th><div class="th-tip-wrap">Bid<div class="th-tip"><span class="th-tip-label">Refreshed every:</span><span class="th-tip-val">Every refresh</span></div></div></th>
-            <th><div class="th-tip-wrap">Ask<div class="th-tip"><span class="th-tip-label">Refreshed every:</span><span class="th-tip-val">Every refresh</span></div></div></th>
-            <th><div class="th-tip-wrap">Spread<div class="th-tip"><span class="th-tip-label">Refreshed every:</span><span class="th-tip-val">Every refresh</span></div></div></th>
             <th><div class="th-tip-wrap">1Y Low / High<div class="th-tip"><span class="th-tip-label">Refreshed every:</span><span class="th-tip-val">24 hours</span></div></div></th>
             <th><div class="th-tip-wrap">Current Supply<div class="th-tip"><span class="th-tip-label">Refreshed every:</span><span class="th-tip-val">24 hours</span></div></div></th>
             <th><div class="th-tip-wrap">Hard Cap<div class="th-tip"><span class="th-tip-label">Refreshed every:</span><span class="th-tip-val">Never — protocol-level</span></div></div></th>
@@ -55,7 +67,7 @@
           </tr>
         </thead>
         <tbody>
-          <template x-for="p in (paxosPinned ? [paxosPrices.find(c => c.base_asset === paxosPinned), ...paxosPrices.filter(c => c.base_asset !== paxosPinned)].filter(Boolean) : paxosPrices)" :key="p.market">
+          <template x-for="p in mkPageCoins()" :key="p.base_asset">
             <tr>
               <td>
                 <div class="coin-cell" x-data="{ profileOpen: false }" @mouseenter="profileOpen = true" @mouseleave="profileOpen = false" style="position:relative">
@@ -67,7 +79,7 @@
                   </template>
                   <div>
                     <div class="coin-name" x-text="p.coinName || p.base_asset"></div>
-                    <div class="coin-symbol" x-text="p.market"></div>
+                    <div class="coin-symbol" x-text="p.base_asset"></div>
                   </div>
                   <!-- Coin profile popup -->
                   <div class="coin-profile-popup" x-show="profileOpen" x-cloak>
@@ -116,9 +128,6 @@
               </td>
               <td x-text="fmtPaxosPrice(p.last)"></td>
               <td x-text="fmtMktCap(p.mktCap)"></td>
-              <td x-text="fmtPaxosPrice(p.bid)"></td>
-              <td x-text="fmtPaxosPrice(p.ask)"></td>
-              <td x-text="p.spread != null ? fmtPaxosPrice(p.spread) : '—'"></td>
               <td x-text="(p.low != null && p.high != null) ? fmtPaxosPrice(p.low) + ' / ' + fmtPaxosPrice(p.high) : '—'"></td>
               <td x-text="p.circulating != null ? fmtAmount(Math.round(p.circulating)) : '—'"></td>
               <td x-text="p.hardCap != null ? fmtAmount(p.hardCap) : (p.last != null ? _hardCapLabel(p.base_asset) : '—')"></td>
@@ -153,34 +162,18 @@
         </tbody>
       </table>
     </div>
-  </div>
 
-  <!-- Account Balances (shown only when data is available) -->
-  <div class="card" x-show="paxosBalances.length">
-    <div class="card-header">
-      <span class="card-title">Account Balances</span>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Asset</th>
-            <th>Available</th>
-            <th>Total</th>
-            <th>Held</th>
-          </tr>
-        </thead>
-        <tbody>
-          <template x-for="b in paxosBalances" :key="b.asset">
-            <tr>
-              <td class="fw-500" x-text="b.asset"></td>
-              <td x-text="b.available ?? b.balance ?? '—'"></td>
-              <td x-text="b.total ?? '—'"></td>
-              <td x-text="b.held ?? '—'"></td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
+    <!-- Pagination -->
+    <div class="pagination" x-show="mkTotalPages() > 1">
+      <button class="btn btn-outline btn-sm" @click="mkPage = Math.max(1, mkPage - 1)" :disabled="mkPage === 1">&laquo; Prev</button>
+      <template x-for="pg in mkTotalPages()" :key="pg">
+        <button class="btn btn-outline btn-sm"
+                :class="{ active: pg === mkPage }"
+                @click="mkPage = pg"
+                x-text="pg"></button>
+      </template>
+      <button class="btn btn-outline btn-sm" @click="mkPage = Math.min(mkTotalPages(), mkPage + 1)" :disabled="mkPage === mkTotalPages()">Next &raquo;</button>
+      <span class="page-info" x-text="`${(mkPage-1)*mkPerPage+1}–${Math.min(mkPage*mkPerPage, mkFilteredCoins().length)} of ${mkFilteredCoins().length}`"></span>
     </div>
   </div>
 

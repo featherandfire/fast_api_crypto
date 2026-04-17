@@ -10,7 +10,9 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from app.database import init_db, engine
-from app.routers import auth, portfolio, coins, wallet, lookup, paxos
+from app.routers import auth, portfolio, coins, wallet, lookup, paxos, cryptocompare
+from app.cryptocompare import start_background_prefetch, stop_background_prefetch
+from app.coingecko import _load_yearly_cache, _save_yearly_cache, start_yearly_prefetch, stop_yearly_prefetch
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,14 @@ async def lifespan(app: FastAPI):
                 await conn.execute(text(stmt))
             except OperationalError:
                 pass  # column already exists — safe to skip
+
+    # Load disk caches so data is available instantly
+    _load_yearly_cache()
+    start_yearly_prefetch()
+    start_background_prefetch()
     yield
+    stop_yearly_prefetch()
+    stop_background_prefetch()
 
 
 app = FastAPI(
@@ -49,6 +58,7 @@ app.include_router(coins.router)
 app.include_router(wallet.router)
 app.include_router(lookup.router)
 app.include_router(paxos.router)
+app.include_router(cryptocompare.router)
 
 
 # ── SPA catch-all ─────────────────────────────────────────────────────────────
