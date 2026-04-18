@@ -175,8 +175,8 @@ _yearly_bg_task: Optional[asyncio.Task] = None
 
 async def _yearly_background_prefetch():
     """Continuously pre-fetch yearly data for all top coins at a safe pace."""
-    # Wait a few seconds for the server to fully start
-    await asyncio.sleep(5)
+    # Wait for the server to fully start and initial /coins/top to settle
+    await asyncio.sleep(10)
 
     while True:
         try:
@@ -190,6 +190,7 @@ async def _yearly_background_prefetch():
 
             if not stale:
                 logger.info("CoinGecko yearly cache fully warm (%d entries), sleeping 24h", len(_yearly_cache))
+                await asyncio.sleep(86400)
             else:
                 logger.info("CoinGecko yearly prefetch: %d stale of %d total", len(stale), len(coin_ids))
                 fetched = 0
@@ -200,15 +201,15 @@ async def _yearly_background_prefetch():
                         fetched += 1
                         if fetched % 10 == 0:
                             _save_yearly_cache()
-                        # ~2s per request = ~30 req/min, safe for free tier
-                        await asyncio.sleep(2)
+                        # ~3s per request = ~20 req/min, safe for free tier
+                        await asyncio.sleep(3)
 
                 _save_yearly_cache()
                 logger.info("CoinGecko yearly prefetch complete: %d fetched", fetched)
+                await asyncio.sleep(86400)
         except Exception as e:
-            logger.error("CoinGecko yearly background prefetch error: %s", e)
-
-        await asyncio.sleep(86400)
+            logger.error("CoinGecko yearly background prefetch error: %s — retrying in 5 min", e)
+            await asyncio.sleep(300)
 
 
 def start_yearly_prefetch():

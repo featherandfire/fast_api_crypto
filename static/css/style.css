@@ -921,11 +921,12 @@ tbody td:nth-child(6) {
 .page-title        { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
 .page-subtitle     { color: var(--muted); font-size: 13px; }
 
-.coin-stack  { display: flex; align-items: center; margin-top: 12px; overflow: hidden; max-width: 100%; }
+.coin-stack  { display: flex; align-items: center; margin-top: 12px; overflow: hidden; max-width: 100%; mask-image: linear-gradient(to right, black 90%, transparent 100%); -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%); }
 
 .coin-stack-wrap {
   position: relative;
   margin-left: -8px;
+  flex-shrink: 0;
 }
 .coin-stack-wrap:first-child { margin-left: 0; }
 .coin-stack-wrap:hover { z-index: 10; }
